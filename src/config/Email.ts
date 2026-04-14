@@ -1,30 +1,25 @@
-// src/config/email.config.ts
 import nodemailer from "nodemailer";
-import dotenv from "dotenv";
+import config from "./env.config";
 
-dotenv.config();
-
-// Create transporter only if email credentials are provided
 export const transporter =
-  process.env.EMAIL_USER && process.env.EMAIL_PASSWORD
+  config.email.user && config.email.password
     ? nodemailer.createTransport({
         service: "gmail",
         auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD,
+          user: config.email.user,
+          pass: config.email.password,
         },
       })
     : null;
 
-// Only verify if transporter exists
 if (transporter) {
-  transporter.verify((error, success) => {
+  transporter.verify((error) => {
     if (error) {
       console.warn("Email configuration warning:", error.message);
     } else {
-      console.log("Email server is ready to send messages");
+      console.log("Email server ready");
     }
   });
 } else {
-  console.log("Email service disabled - no credentials provided");
+  console.log("Email service disabled — no credentials provided");
 }

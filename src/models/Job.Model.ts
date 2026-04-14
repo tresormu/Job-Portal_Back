@@ -1,5 +1,4 @@
 import mongoose, { Schema, Document } from "mongoose";
-export interface JobModel {}
 export type JobCategory =
   | "Technology"
   | "Healthcare"

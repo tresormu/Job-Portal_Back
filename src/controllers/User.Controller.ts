@@ -1,549 +1,157 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import User from "../models/User.Model";
+import config from "../config/env.config";
+import type { AuthRequest } from "../types/type";
 
+class UserController {
+  async register(req: Request, res: Response) {
+    try {
+      const { name, email, contactPhone, password, role } = req.body;
 
+      if (!name || !email || !contactPhone || !password || !role) {
+        return res.status(400).json({ success: false, message: "name, email, contactPhone, password, role are required" });
+      }
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     User:
- *       type: object
- *       required:
- *         - name
- *         - email
- *         - contactPhone
- *         - password
- *         - role
- *       properties:
- *         id:
- *           type: string
- *         name:
- *           type: string
- *         email:
- *           type: string
- *         contactPhone:
- *           type: string
- *         password:
- *           type: string
- *         avatar:
- *           type: string
- *         role:
- *           type: string
- *           enum: [CANDIDATE, EMPLOYER, ADMIN, GUEST]
- */
-// Helper function to generate token with userType
-const generateToken = (id: string, userType: string = "user") => {
-  if (!process.env.JWT_SECRET) {
-    throw new Error("JWT_SECRET is not defined in environment variables");
-  }
-  return jwt.sign({ id, userType }, process.env.JWT_SECRET!, {
-    expiresIn: "30d",
-  });
-};
-
-/**
- * @swagger
- * /api/auth/register:
- *   post:
- *     summary: Create a new user
- *     tags: [Users]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, email, contactPhone, password, role]
- *             properties:
- *               name:
- *                 type: string
- *               email:
- *                 type: string
- *               contactPhone:
- *                 type: string
- *               password:
- *                 type: string
- *                 minLength: 6
- *               role:
- *                 type: string
- *                 enum: [CANDIDATE, ADMIN]
- *     responses:
- *       201:
- *         description: User created successfully
- *       400:
- *         description: User already exists or invalid role
- *       500:
- *         description: Server error
- */
-export const addUser = async (req: Request, res: Response) => {
-  console.log(process.env.JWT_SECRET);
-  try {
-    const { name, email, contactPhone, password, role } = req.body;
-
-    if (role === "EMPLOYER") {
-      return res.status(400).json({
-        success: false,
-        message: "Please use /api/employers/register for employer registration",
-      });
-    }
-
-    // Normalize email
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: normalizedEmail });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "User with this email already exists",
-      });
-    }
-
-    // Get profile picture URL if uploaded
-    const avatarUrl = req.file ? req.file.path : undefined;
-
-    // Normalize role to uppercase
-    const normalizedRole = role.toUpperCase();
-
-    const NewUser = await User.create({
-      name,
-      email: normalizedEmail,
-      contactPhone,
-      password,
-      role: normalizedRole,
-      avatar: avatarUrl,
-    });
-
-    if (NewUser) {
-      res.status(201).json({
-        success: true,
-        message: "User created successfully",
-        token: generateToken(NewUser._id.toString(), "user"),
-        user: {
-          id: NewUser._id,
-          name: NewUser.name,
-          email: NewUser.email,
-          role: NewUser.role,
-          avatar: NewUser.avatar,
-        },
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: "Invalid user data",
-      });
-    }
-  } catch (error: any) {
-    if (error.name === "ValidationError") {
-      const messages = Object.values(error.errors).map(
-        (val: any) => val.message,
-      );
-      return res.status(400).json({
-        success: false,
-        message: messages.join(", "),
-      });
-    }
-
-    console.error("Error creating user:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "User creation failed",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-};
-
-/**
- * @swagger
- * /api/auth/{id}:
- *   get:
- *     summary: Get a user by ID
- *     tags: [Users]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     responses:
- *       200:
- *         description: User details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       404:
- *         description: User not found
- *       500:
- *         description: Server error
- */
-export const getUserById = async (req: Request, res: Response) => {
-  try {
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: user,
-    });
-  } catch (error) {
-    console.error("Error creating user:", error);
-    res.status(500).json({ message: "sorry please try again" });
-  }
-};
-
-/**
- * @swagger
- * /api/auth/{id}:
- *   put:
- *     summary: Update a user
- *     tags: [Users]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/User'
- *     responses:
- *       200:
- *         description: User updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       404:
- *         description: User not found
- *       500:
- *         description: Server error
- */
-export const updateUser = async (req: Request, res: Response) => {
-  try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    }).select("-password");
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "User updated successfully",
-      data: user,
-    });
-  } catch (error) {
-    console.error("Error updating user:", error);
-    res.status(500).json({ message: "sorry please try again" });
-  }
-};
-/**
- * @swagger
- * /api/auth/{id}:
- *   delete:
- *     summary: Delete a user by ID
- *     tags: [Users]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     responses:
- *       200:
- *         description: User deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *       404:
- *         description: User not found
- *       500:
- *         description: Server error
- */
-export const deleteUserById = async (req: Request, res: Response) => {
-  try {
-    const user = await User.findByIdAndDelete(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "User deleted successfully",
-    });
-  } catch (error) {
-    console.error("Error deleting user:", error);
-    res.status(500).json({ message: "sorry please try again" });
-  }
-};
-
-/**
- * @swagger
- * /api/auth/login:
- *   post:
- *     summary: Login user
- *     tags: [Users]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [email, password]
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Login successful
- *       401:
- *         description: Invalid credentials
- *       500:
- *         description: Server error
- */
-export const loginUser = async (req: Request, res: Response) => {
-  try {
-    const { email, password } = req.body;
-
-    // Check for user email
-    const user = await User.findOne({ email }).select("+password");
-
-    if (user && (await bcrypt.compare(password, user.password))) {
-      if (user.role === "CANDIDATE" || user.role === "ADMIN") {
-        res.json({
-          success: true,
-          token: generateToken((user._id as unknown) as string, "user"),
-          user: {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            avatar: user.avatar,
-          },
-        });
-      } else {
-        res.status(400).json({
+      if (role === "EMPLOYER") {
+        return res.status(400).json({
           success: false,
-          message:
-            "Invalid login. Please use employer login for employer accounts.",
+          message: "Please use /api/employers/register for employer registration",
         });
       }
-    } else {
-      res.status(401).json({
-        success: false,
-        message: "Invalid credentials",
+
+      const normalizedEmail = email.toLowerCase().trim();
+      const existing = await User.findOne({ email: normalizedEmail });
+      if (existing) {
+        return res.status(400).json({ success: false, message: "User with this email already exists" });
+      }
+
+      const avatarUrl = req.file ? req.file.path : undefined;
+      const newUser = await User.create({
+        name,
+        email: normalizedEmail,
+        contactPhone,
+        password,
+        role: role.toUpperCase(),
+        avatar: avatarUrl,
       });
-    }
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message || "Server Error",
-    });
-  }
-};
 
-/**
- * @swagger
- * /api/users/logout:
- *   post:
- *     summary: Logout user
- *     tags: [Users]
- *     responses:
- *       200:
- *         description: Logout successful
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *       500:
- *         description: Server error
- */
-// Logout User
-/**
- * @swagger
- * /api/users/{id}/status:
- *   patch:
- *     summary: Toggle user account status (Admin only)
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User status updated successfully
- *       404:
- *         description: User not found
- *       500:
- *         description: Server error
- */
-export const toggleUserStatus = async (req: Request, res: Response) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
+      const token = jwt.sign({ id: newUser._id, userType: "user" }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+
+      return res.status(201).json({
+        success: true,
+        message: "User created successfully",
+        token,
+        user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role, avatar: newUser.avatar },
       });
+    } catch (error: any) {
+      if (error.name === "ValidationError") {
+        const messages = Object.values(error.errors).map((v: any) => v.message);
+        return res.status(400).json({ success: false, message: messages.join(", ") });
+      }
+      console.error("Error creating user:", error);
+      return res.status(500).json({ success: false, message: "User creation failed" });
     }
-
-    user.isActive = !user.isActive;
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: `User account ${user.isActive ? "activated" : "suspended"} successfully`,
-      data: { isActive: user.isActive },
-    });
-  } catch (error) {
-    console.error("Error toggling user status:", error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
-};
 
-export const logoutUser = async (req: Request, res: Response) => {
-  try {
-    res.status(200).json({
-      success: true,
-      message: "Logout successful",
-    });
-  } catch (error) {
-    console.error("Logout error:", error);
-    res.status(500).json({ message: "Logout failed" });
-  }
-};
+  async login(req: Request, res: Response) {
+    try {
+      const { email, password } = req.body;
+      const user = await User.findOne({ email: email.toLowerCase().trim() }).select("+password");
 
-/**
- * @swagger
- * /api/users/change-password:
- *   post:
- *     summary: Change user password
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - currentPassword
- *               - newPassword
- *             properties:
- *               currentPassword:
- *                 type: string
- *                 description: Current password
- *               newPassword:
- *                 type: string
- *                 description: New password
- *     responses:
- *       200:
- *         description: Password changed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *       400:
- *         description: Invalid current password
- *       401:
- *         description: User not found
- *       500:
- *         description: Server error
- */
-// Change Password
-export const changePassword = async (req: Request, res: Response) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    const userId = (req as any).user.id;
+      if (!user || !(await bcrypt.compare(password, user.password))) {
+        return res.status(401).json({ success: false, message: "Invalid credentials" });
+      }
+      if (!user.isActive) {
+        return res.status(401).json({ success: false, message: "Account has been suspended" });
+      }
+      if (user.role !== "CANDIDATE" && user.role !== "ADMIN") {
+        return res.status(400).json({ success: false, message: "Please use employer login for employer accounts" });
+      }
 
-    const user = await User.findById(userId).select("+password");
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "User not found",
+      const token = jwt.sign({ id: user._id, userType: "user" }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+
+      return res.status(200).json({
+        success: true,
+        token,
+        user: { id: user._id, name: user.name, email: user.email, role: user.role, avatar: user.avatar },
       });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Server error" });
     }
-
-    const isCurrentPasswordValid = await bcrypt.compare(
-      currentPassword,
-      user.password,
-    );
-    if (!isCurrentPasswordValid) {
-      return res.status(400).json({
-        success: false,
-        message: "Current password is incorrect",
-      });
-    }
-
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    await User.findByIdAndUpdate(userId, { password: hashedNewPassword });
-
-    res.status(200).json({
-      success: true,
-      message: "Password changed successfully",
-    });
-  } catch (error) {
-    console.error("Change password error:", error);
-    res.status(500).json({ message: "Password change failed" });
   }
-};
+
+  async logout(_req: Request, res: Response) {
+    return res.status(200).json({ success: true, message: "Logout successful" });
+  }
+
+  async getById(req: Request, res: Response) {
+    try {
+      const user = await User.findById(req.params.id).select("-password");
+      if (!user) return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(200).json({ success: true, data: user });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  async update(req: AuthRequest, res: Response) {
+    try {
+      if (req.user!.id !== req.params.id && req.user!.role !== "ADMIN") {
+        return res.status(403).json({ success: false, message: "Forbidden" });
+      }
+      const { password, role, ...safeBody } = req.body;
+      const user = await User.findByIdAndUpdate(req.params.id, safeBody, { new: true, runValidators: true }).select("-password");
+      if (!user) return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(200).json({ success: true, message: "User updated successfully", data: user });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  async delete(req: Request, res: Response) {
+    try {
+      const user = await User.findByIdAndDelete(req.params.id);
+      if (!user) return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(200).json({ success: true, message: "User deleted successfully" });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  async toggleStatus(req: Request, res: Response) {
+    try {
+      const user = await User.findById(req.params.id);
+      if (!user) return res.status(404).json({ success: false, message: "User not found" });
+      user.isActive = !user.isActive;
+      await user.save();
+      return res.status(200).json({
+        success: true,
+        message: `User account ${user.isActive ? "activated" : "suspended"} successfully`,
+        data: { isActive: user.isActive },
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  async changePassword(req: AuthRequest, res: Response) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const user = await User.findById(req.user!.id).select("+password");
+      if (!user) return res.status(401).json({ success: false, message: "User not found" });
+
+      const isValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isValid) return res.status(400).json({ success: false, message: "Current password is incorrect" });
+
+      user.password = newPassword;
+      await user.save();
+      return res.status(200).json({ success: true, message: "Password changed successfully" });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+}
+
+export default new UserController();

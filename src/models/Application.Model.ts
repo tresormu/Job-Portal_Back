@@ -3,9 +3,9 @@ import mongoose, { Schema, Document } from "mongoose";
 export type ApplicationStatus = "PENDING" | "REVIEWED" | "SHORTLISTED" | "REJECTED" | "HIRED";
 
 export interface ApplicationModel extends Document {
-  jobId: string;
-  userId: string;
-  employerId: string;
+  jobId: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+  employerId: mongoose.Types.ObjectId;
   name: string;
   email: string;
   resume: string;
@@ -17,9 +17,9 @@ export interface ApplicationModel extends Document {
 }
 
 const ApplicationSchema = new Schema<ApplicationModel>({
-  jobId: { type: String, required: true, ref: 'Job' },
-  userId: { type: String, required: true, ref: 'User' },
-  employerId: { type: String, required: true, ref: 'Employer' },
+  jobId: { type: Schema.Types.ObjectId, required: true, ref: "Job" },
+  userId: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+  employerId: { type: Schema.Types.ObjectId, required: true, ref: "Employer" },
   name: { type: String, required: true },
   email: { type: String, required: true },
   resume: { type: String, required: true },
@@ -27,11 +27,11 @@ const ApplicationSchema = new Schema<ApplicationModel>({
   status: {
     type: String,
     enum: ["PENDING", "REVIEWED", "SHORTLISTED", "REJECTED", "HIRED"],
-    default: "PENDING"
+    default: "PENDING",
   },
   notes: { type: String },
   submissionDate: { type: Date, default: Date.now },
-  lastUpdated: { type: Date, default: Date.now }
+  lastUpdated: { type: Date, default: Date.now },
 });
 
 ApplicationSchema.pre("save", function () {

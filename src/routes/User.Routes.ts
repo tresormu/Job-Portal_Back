@@ -1,27 +1,18 @@
-import express from "express";
+import { Router } from "express";
 import { protect } from "../middleware/auth.Middleware";
 import { authorize } from "../middleware/authorize";
 import { profileUpload } from "../middleware/profileUpload.middleware";
-import {
-  addUser,
-  getUserById,
-  updateUser,
-  deleteUserById,
-  loginUser,
-  logoutUser,
-  changePassword,
-  toggleUserStatus,
-} from "../controllers/User.Controller";
-import { getAllUsers } from "../controllers/adminController";
-const router = express.Router();
-router.post("/register", profileUpload.single("profile"), addUser);
-router.get("/", getAllUsers);
-router.post("/login", loginUser);
-router.post("/logout", protect, logoutUser);
-router.post("/change-password", protect, changePassword);
-router.get("/:id", protect, getUserById);
-router.put("/:id", protect, updateUser);
-router.delete("/:id", protect, authorize("ADMIN"), deleteUserById);
-router.patch("/:id/status", protect, authorize("ADMIN"), toggleUserStatus);
+import UserController from "../controllers/User.Controller";
+
+const router = Router();
+
+router.post("/register", profileUpload.single("profile"), UserController.register.bind(UserController));
+router.post("/login", UserController.login.bind(UserController));
+router.post("/logout", protect, UserController.logout.bind(UserController));
+router.post("/change-password", protect, UserController.changePassword.bind(UserController));
+router.get("/:id", protect, UserController.getById.bind(UserController));
+router.put("/:id", protect, UserController.update.bind(UserController));
+router.delete("/:id", protect, authorize("ADMIN"), UserController.delete.bind(UserController));
+router.patch("/:id/status", protect, authorize("ADMIN"), UserController.toggleStatus.bind(UserController));
 
 export default router;

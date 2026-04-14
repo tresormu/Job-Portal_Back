@@ -1,29 +1,16 @@
-import express from "express";
+import { Router } from "express";
 import { protect } from "../middleware/auth.Middleware";
 import { authorize } from "../middleware/authorize";
-import {
-  getAllJobs,
-  addJob,
-  getJobById,
-  updateJob,
-  deleteJob,
-  getJobsByEmployer,
-  searchJobs,
-} from "../controllers/Job.Controller";
+import JobController from "../controllers/Job.Controller";
 
-const router = express.Router();
+const router = Router();
 
-// Public routes - MUST come before parameterized routes
-router.get("/all", getAllJobs);
-router.get("/search", searchJobs);
-
-// Protected routes - authentication required
-router.post("/", protect, authorize("EMPLOYER"), addJob);
-router.get("/employer/:employerId", getJobsByEmployer);
-router.put("/:id", protect, authorize("EMPLOYER"), updateJob);
-router.delete("/:id", protect, authorize("EMPLOYER", "ADMIN"), deleteJob);
-
-// Generic ID route must come last
-router.get("/:id", getJobById);
+router.get("/all", JobController.getAll.bind(JobController));
+router.get("/search", JobController.search.bind(JobController));
+router.get("/employer/:employerId", JobController.getByEmployer.bind(JobController));
+router.post("/", protect, authorize("EMPLOYER"), JobController.create.bind(JobController));
+router.put("/:id", protect, authorize("EMPLOYER"), JobController.update.bind(JobController));
+router.delete("/:id", protect, authorize("EMPLOYER", "ADMIN"), JobController.delete.bind(JobController));
+router.get("/:id", JobController.getById.bind(JobController));
 
 export default router;
