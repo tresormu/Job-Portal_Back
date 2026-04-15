@@ -85,6 +85,20 @@ class JobController {
     }
   }
 
+  async getCategories(_req: Request, res: Response) {
+    try {
+      const result = await Job.aggregate([
+        { $match: { isActive: true } },
+        { $group: { _id: "$category", count: { $sum: 1 } } },
+        { $project: { _id: 0, name: "$_id", count: 1 } },
+        { $sort: { name: 1 } },
+      ]);
+      return res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
   async search(req: Request, res: Response) {
     try {
       const { keyword, category, location, jobType } = req.query;
