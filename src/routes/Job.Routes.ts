@@ -6,6 +6,7 @@ import JobController from "../controllers/Job.Controller";
 const router = Router();
 
 router.get("/all", JobController.getAll.bind(JobController));
+router.get("/categories", JobController.getCategories.bind(JobController));
 router.get("/search", JobController.search.bind(JobController));
 router.get("/employer/:employerId", JobController.getByEmployer.bind(JobController));
 router.post("/", protect, authorize("EMPLOYER"), JobController.create.bind(JobController));

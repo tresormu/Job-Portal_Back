@@ -4,8 +4,13 @@ const config: Config = {
   preset: "ts-jest",
   testEnvironment: "node",
   testMatch: ["**/tests/**/*.test.ts"],
-  setupFilesAfterEnv: ["<rootDir>/src/tests/setup.ts"],
+  setupFilesAfterEnv: ["<rootDir>/../../src/tests/setup.ts"],
   testTimeout: 30000,
+  globals: {
+    "ts-jest": {
+      tsconfig: "tsconfig.test.json",
+    },
+  },
 };
 
 export default config;
