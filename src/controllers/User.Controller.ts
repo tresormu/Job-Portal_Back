@@ -2,8 +2,10 @@ import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import User from "../models/User.Model";
+import Application from "../models/Application.Model";
 import config from "../config/env.config";
 import type { AuthRequest } from "../types/type";
+import MailService from "../utils/Mail";
 
 class UserController {
   async register(req: Request, res: Response) {
@@ -38,6 +40,9 @@ class UserController {
       });
 
       const token = jwt.sign({ id: newUser._id, userType: "user" }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+
+      // Send welcome email (asynchronous, don't block response)
+      MailService.sendWelcomeEmail(newUser.email, newUser.name.split(" ")[0]);
 
       return res.status(201).json({
         success: true,
@@ -140,7 +145,7 @@ class UserController {
     try {
       const { currentPassword, newPassword } = req.body;
       const user = await User.findById(req.user!.id).select("+password");
-      if (!user) return res.status(401).json({ success: false, message: "User not found" });
+      if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
       const isValid = await bcrypt.compare(currentPassword, user.password);
       if (!isValid) return res.status(400).json({ success: false, message: "Current password is incorrect" });
@@ -148,6 +153,27 @@ class UserController {
       user.password = newPassword;
       await user.save();
       return res.status(200).json({ success: true, message: "Password changed successfully" });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  async getStats(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user!.id;
+      const [appliedJobs, shortlisted] = await Promise.all([
+        Application.countDocuments({ userId }),
+        Application.countDocuments({ userId, status: "SHORTLISTED" })
+      ]);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          appliedJobs,
+          shortlisted,
+          savedJobs: 0 // Placeholder for future saved jobs feature
+        }
+      });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Server error" });
     }

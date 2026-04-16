@@ -10,6 +10,7 @@ router.post("/register", profileUpload.single("profile"), UserController.registe
 router.post("/login", UserController.login.bind(UserController));
 router.post("/logout", protect, UserController.logout.bind(UserController));
 router.post("/change-password", protect, UserController.changePassword.bind(UserController));
+router.get("/stats", protect, UserController.getStats.bind(UserController));
 router.get("/:id", protect, UserController.getById.bind(UserController));
 router.put("/:id", protect, UserController.update.bind(UserController));
 router.delete("/:id", protect, authorize("ADMIN"), UserController.delete.bind(UserController));

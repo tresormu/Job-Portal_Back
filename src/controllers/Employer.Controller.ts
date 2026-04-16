@@ -4,8 +4,10 @@ import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import Employer from "../models/Employer.Model";
 import Job from "../models/Job.Model";
+import Application from "../models/Application.Model";
 import config from "../config/env.config";
 import type { AuthRequest } from "../types/type";
+import MailService from "../utils/Mail";
 
 class EmployerController {
   async getAll(_req: Request, res: Response) {
@@ -30,6 +32,9 @@ class EmployerController {
       const employer = await Employer.create({ email: email.toLowerCase().trim(), password, phone, companyName, isVerified: false });
 
       const token = jwt.sign({ id: employer._id, userType: "employer" }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+
+      // Send welcome email
+      MailService.sendWelcomeEmail(employer.email, employer.companyName);
 
       return res.status(201).json({
         success: true,
@@ -130,6 +135,33 @@ class EmployerController {
       );
       const top = withCounts.filter((e) => e.jobCount > 0).sort((a, b) => b.jobCount - a.jobCount).slice(0, 10);
       return res.status(200).json({ success: true, data: top });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  async getStats(req: AuthRequest, res: Response) {
+    try {
+      const employerId = new mongoose.Types.ObjectId(req.user!.id);
+      
+      const [activeJobs, totalApplicants, shortlistedCount, jobs] = await Promise.all([
+        Job.countDocuments({ employerId, isActive: true }),
+        Application.countDocuments({ employerId }),
+        Application.countDocuments({ employerId, status: "SHORTLISTED" }),
+        Job.find({ employerId }).select("views")
+      ]);
+
+      const totalViews = jobs.reduce((sum, job) => sum + (job.views || 0), 0);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          activeJobs,
+          totalApplicants,
+          totalViews,
+          shortlistedCount
+        }
+      });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Server error" });
     }

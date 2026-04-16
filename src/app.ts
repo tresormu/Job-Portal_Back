@@ -14,12 +14,12 @@ const app = express();
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-app.use(
-  cors({
-    origin:[],
-    credentials: true,
-  })
-);
+const corsOptions = {
+  origin: config.corsOrigins?.length ? config.corsOrigins : true,
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs, {
   customCss: ".swagger-ui .topbar { display: none }",

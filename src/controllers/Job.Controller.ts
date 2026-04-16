@@ -4,9 +4,18 @@ import Job from "../models/Job.Model";
 import type { AuthRequest } from "../types/type";
 
 class JobController {
-  async getAll(_req: Request, res: Response) {
+  async getAll(req: Request, res: Response) {
     try {
-      const jobs = await Job.find({ isActive: true });
+      const limit = parseInt(req.query.limit as string) || 0;
+      const page = parseInt(req.query.page as string) || 1;
+      const skip = (page - 1) * limit;
+
+      const query = Job.find({ isActive: true });
+      if (limit > 0) {
+        query.limit(limit).skip(skip);
+      }
+
+      const jobs = await query.exec();
       return res.status(200).json({ success: true, data: jobs });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Server error" });
@@ -90,11 +99,12 @@ class JobController {
       const result = await Job.aggregate([
         { $match: { isActive: true } },
         { $group: { _id: "$category", count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
         { $project: { _id: 0, name: "$_id", count: 1 } },
-        { $sort: { name: 1 } },
       ]);
       return res.status(200).json({ success: true, data: result });
     } catch (error) {
+      console.error("getCategories error:", error);
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }

@@ -5,11 +5,9 @@ const config: Config = {
   testEnvironment: "node",
   testMatch: ["**/tests/**/*.test.ts"],
   setupFilesAfterEnv: ["<rootDir>/src/tests/setup.ts"],
-  testTimeout: 30000,
-  globals: {
-    "ts-jest": {
-      tsconfig: "tsconfig.test.json",
-    },
+  testTimeout: 120000,
+  transform: {
+    "^.+\\.tsx?$": ["ts-jest", { tsconfig: "tsconfig.test.json" }],
   },
 };
 

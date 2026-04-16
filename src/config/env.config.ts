@@ -1,5 +1,29 @@
+import dns from "dns";
 import dotenv from "dotenv";
+
 dotenv.config();
+
+/**
+ * Configure DNS servers as a global fallback for the dns module.
+ * This helps resolve SRV records in environments like WSL/Docker/Restricted Networks.
+ */
+const configureDns = () => {
+  const fallbackServers = ["8.8.8.8", "1.1.1.1"];
+  const rawDns = process.env.DNS_SERVERS;
+  const servers = rawDns
+    ? rawDns.split(",").map((s) => s.trim()).filter(Boolean)
+    : fallbackServers;
+
+  try {
+    dns.setServers(servers);
+    console.log(`[Config] DNS servers set to: ${servers.join(", ")}`);
+  } catch (error) {
+    console.warn("[Config] Failed to set DNS servers, using system default.");
+  }
+};
+
+// Apply DNS configuration immediately
+configureDns();
 
 const requireEnv = (key: string): string => {
   const value = process.env[key];
@@ -15,7 +39,7 @@ const parseCorsOrigins = (): string[] | undefined => {
 };
 
 const config = {
-  port: Number(process.env.PORT) || 5000,
+  port: Number(process.env.PORT || 5000),
   nodeEnv: process.env.NODE_ENV || "development",
   corsOrigins: parseCorsOrigins(),
 
